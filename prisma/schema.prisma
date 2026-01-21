@@ -1,0 +1,523 @@
+// Dottie OS Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ORGANISATIONS & USERS
+// ============================================
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Daily Updates Settings
+  dailyUpdateScheduleTime    String? // e.g. "17:00"
+  dailyUpdateScheduleDays    String? // JSON array of days: ["Mon","Tue","Wed","Thu","Fri"]
+  dailyUpdateDefaultApprover String? // role: "SUPERVISOR" or "ADMIN"
+
+  // Relations
+  users               User[]
+  children            Child[]
+  guardians           Guardian[]
+  attendance          Attendance[]
+  paymentInvoices     PaymentInvoice[]
+  consentTemplates    ConsentTemplate[]
+  consentRecords      ConsentRecord[]
+  documents           Document[]
+  incidentLogs        IncidentLog[]
+  tasks               Task[]
+  evidenceItems       EvidenceItem[]
+  dailyNotes          DailyNote[]
+  dailyUpdates        DailyUpdate[]
+  outboundMessageLogs OutboundMessageLog[]
+
+  @@map("organisations")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  SUPERVISOR
+  STAFF
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  role           UserRole
+  organisationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  childAssignments        ChildAssignment[]
+  createdTasks            Task[]                @relation("TaskCreator")
+  assignedTasks           Task[]                @relation("TaskAssignee")
+  createdIncidentLogs     IncidentLog[]
+  dailyNotes              DailyNote[]
+  dailyUpdateApprovals    DailyUpdateApproval[]
+  createdConsentRecords   ConsentRecord[]       @relation("ConsentCreator")
+  createdPaymentInvoices  PaymentInvoice[]      @relation("PaymentCreator")
+  createdChildren         Child[]               @relation("ChildCreator")
+  createdEvidenceItems    EvidenceItem[]        @relation("EvidenceCreator")
+  updatedEvidenceItems    EvidenceItem[]        @relation("EvidenceUpdater")
+  createdDocuments        Document[]
+
+  @@map("users")
+}
+
+// ============================================
+// CHILDREN & GUARDIANS
+// ============================================
+
+model Child {
+  id             String    @id @default(cuid())
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime
+  startDate      DateTime
+  keyPersonId    String?
+  room           String? // e.g. "Toddlers", "Pre-school"
+  medicalNotes   String?
+  dietaryNeeds   String?
+  emergencyNotes String?
+  organisationId String
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("ChildCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Relations
+  guardians        ChildGuardian[]
+  assignments      ChildAssignment[]
+  attendance       Attendance[]
+  paymentInvoices  PaymentInvoice[]
+  consentRecords   ConsentRecord[]
+  documents        Document[]
+  incidentLogs     IncidentLog[]
+  tasks            Task[]
+  dailyNotes       DailyNote[]
+  dailyUpdates     DailyUpdate[]
+
+  @@map("children")
+}
+
+enum CommunicationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+model Guardian {
+  id                     String               @id @default(cuid())
+  firstName              String
+  lastName               String
+  email                  String?
+  phone                  String?
+  relationship           String // e.g. "Mother", "Father", "Grandmother"
+  pickupPermission       Boolean              @default(true)
+  preferredChannel       CommunicationChannel @default(EMAIL)
+  organisationId         String
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  children            ChildGuardian[]
+  outboundMessageLogs OutboundMessageLog[]
+
+  @@map("guardians")
+}
+
+model ChildGuardian {
+  id         String   @id @default(cuid())
+  childId    String
+  guardianId String
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  child    Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, guardianId])
+  @@map("child_guardians")
+}
+
+model ChildAssignment {
+  id        String   @id @default(cuid())
+  childId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, userId])
+  @@map("child_assignments")
+}
+
+// ============================================
+// ATTENDANCE
+// ============================================
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HOLIDAY
+  SICK
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  childId        String
+  date           DateTime         @db.Date
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  status         AttendanceStatus @default(PRESENT)
+  notes          String?
+  organisationId String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  child        Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, date])
+  @@index([date])
+  @@map("attendance")
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  OVERDUE
+}
+
+model PaymentInvoice {
+  id             String        @id @default(cuid())
+  childId        String
+  amount         Float
+  dueDate        DateTime
+  paidDate       DateTime?
+  status         PaymentStatus @default(UNPAID)
+  description    String?
+  notes          String?
+  reminderSentAt DateTime?
+  organisationId String
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  child        Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("PaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([dueDate])
+  @@map("payment_invoices")
+}
+
+// ============================================
+// CONSENTS & DOCUMENTS
+// ============================================
+
+model ConsentTemplate {
+  id             String   @id @default(cuid())
+  name           String // e.g. "Photo Consent", "Medical Consent"
+  description    String?
+  requiresExpiry Boolean  @default(false)
+  organisationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  consentRecords ConsentRecord[]
+
+  @@map("consent_templates")
+}
+
+enum ConsentStatus {
+  MISSING
+  SIGNED
+  EXPIRED
+}
+
+model ConsentRecord {
+  id               String        @id @default(cuid())
+  childId          String
+  templateId       String
+  status           ConsentStatus @default(MISSING)
+  signedDate       DateTime?
+  expiryDate       DateTime?
+  notes            String?
+  documentId       String?
+  organisationId   String
+  createdById      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  child        Child            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  template     ConsentTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  document     Document?        @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?            @relation("ConsentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("consent_records")
+}
+
+model Document {
+  id             String   @id @default(cuid())
+  name           String
+  filePath       String // URL or file path
+  fileType       String? // e.g. "application/pdf", "image/jpeg"
+  fileSize       Int? // in bytes
+  childId        String?
+  organisationId String
+  uploadedById   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  child             Child?              @relation(fields: [childId], references: [id], onDelete: Cascade)
+  organisation      Organisation        @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  uploadedBy        User?               @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  consentRecords    ConsentRecord[]
+  incidentLogs      IncidentLog[]
+  evidenceAttachments EvidenceAttachment[]
+
+  @@map("documents")
+}
+
+// ============================================
+// INCIDENT / ACCIDENT LOG
+// ============================================
+
+model IncidentLog {
+  id                  String   @id @default(cuid())
+  childId             String
+  date                DateTime
+  time                String
+  description         String
+  actionTaken         String?
+  witnesses           String?
+  parentNotified      Boolean  @default(false)
+  parentNotifiedAt    DateTime?
+  organisationId      String
+  createdById         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  child        Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  documents    Document[]
+
+  @@index([date])
+  @@map("incident_logs")
+}
+
+// ============================================
+// TASKS
+// ============================================
+
+enum TaskCategory {
+  ADMIN
+  COMPLIANCE
+  FINANCE
+  PARENT_UPDATES
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  title          String
+  description    String?
+  dueDate        DateTime?
+  category       TaskCategory
+  status         TaskStatus   @default(PENDING)
+  childId        String?
+  linkedDate     DateTime?    @db.Date // For linking to specific date (e.g. daily update date)
+  assignedToId   String?
+  organisationId String
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  child        Child?       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  assignedTo   User?        @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([category])
+  @@map("tasks")
+}
+
+// ============================================
+// EVIDENCE VAULT
+// ============================================
+
+enum EvidenceStatus {
+  NOT_READY
+  READY
+}
+
+model EvidenceItem {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?
+  category       String // e.g. "Policies", "Training", "Risk Assessments"
+  status         EvidenceStatus @default(NOT_READY)
+  notes          String?
+  lastReviewedAt DateTime?
+  organisationId String
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?                 @relation("EvidenceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                 @relation("EvidenceUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  attachments  EvidenceAttachment[]
+
+  @@map("evidence_items")
+}
+
+model EvidenceAttachment {
+  id             String   @id @default(cuid())
+  evidenceItemId String
+  documentId     String
+  createdAt      DateTime @default(now())
+
+  evidenceItem EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("evidence_attachments")
+}
+
+// ============================================
+// DAILY UPDATES
+// ============================================
+
+model DailyNote {
+  id             String   @id @default(cuid())
+  childId        String
+  date           DateTime @db.Date
+  wellbeing      String?
+  meals          String?
+  naps           String?
+  toileting      String?
+  activities     String?
+  notableEvents  String?
+  organisationId String
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  child        Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([childId, date])
+  @@index([date])
+  @@map("daily_notes")
+}
+
+enum DailyUpdateStatus {
+  DRAFT
+  NEEDS_APPROVAL
+  APPROVED
+  SENT
+  MISSED
+  FAILED
+}
+
+model DailyUpdate {
+  id                    String            @id @default(cuid())
+  childId               String
+  date                  DateTime          @db.Date
+  status                DailyUpdateStatus @default(DRAFT)
+  compiledEmailContent  String? // Compiled message for email
+  compiledWhatsAppContent String? // Compiled message for WhatsApp
+  sentAt                DateTime?
+  organisationId        String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  child        Child                 @relation(fields: [childId], references: [id], onDelete: Cascade)
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  approval     DailyUpdateApproval?
+  messageLogs  OutboundMessageLog[]
+
+  @@unique([childId, date])
+  @@index([date])
+  @@index([status])
+  @@map("daily_updates")
+}
+
+model DailyUpdateApproval {
+  id             String   @id @default(cuid())
+  dailyUpdateId  String   @unique
+  approvedById   String
+  approvedAt     DateTime @default(now())
+
+  dailyUpdate DailyUpdate @relation(fields: [dailyUpdateId], references: [id], onDelete: Cascade)
+  approvedBy  User        @relation(fields: [approvedById], references: [id], onDelete: Cascade)
+
+  @@map("daily_update_approvals")
+}
+
+enum MessageStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model OutboundMessageLog {
+  id               String               @id @default(cuid())
+  dailyUpdateId    String?
+  childId          String? // For linking
+  guardianId       String
+  channel          CommunicationChannel
+  content          String // Snapshot of message sent
+  status           MessageStatus
+  failureReason    String?
+  sentAt           DateTime             @default(now())
+  organisationId   String
+
+  dailyUpdate  DailyUpdate?  @relation(fields: [dailyUpdateId], references: [id], onDelete: SetNull)
+  guardian     Guardian      @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([sentAt])
+  @@map("outbound_message_logs")
+}
