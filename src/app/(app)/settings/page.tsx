@@ -1,11 +1,12 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Settings as SettingsIcon, Building, Users, Clock } from "lucide-react"
+import { Building, Users, Clock, HeartHandshake, ArrowRight } from "lucide-react"
+import Link from "next/link"
 
 export default async function SettingsPage() {
   const user = await requireAuth()
@@ -202,6 +203,42 @@ export default async function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin(user.role) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <HeartHandshake className="h-5 w-5" />
+              Affiliate Programme
+            </CardTitle>
+            <CardDescription>
+              Review partner applications and manage your affiliate programme
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 border-2 border-black rounded-md">
+              <div>
+                <p className="font-medium">Partner Applications</p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Approve or reject affiliate applications · 25% revenue share for 12 months
+                </p>
+              </div>
+              <Link href="/settings/affiliates">
+                <Button>
+                  Manage Applications
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <p className="mt-3 text-sm text-gray-600">
+              Public programme page:{" "}
+              <Link href="/affiliate" target="_blank" className="underline hover:no-underline">
+                /affiliate
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

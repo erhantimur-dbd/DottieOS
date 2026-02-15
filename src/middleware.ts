@@ -1,15 +1,23 @@
 import { auth } from "@/lib/auth/config"
 import { NextResponse } from "next/server"
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth
-  const isOnLoginPage = req.nextUrl.pathname.startsWith('/login')
+// Routes accessible without authentication
+const PUBLIC_PATHS = ['/login', '/affiliate']
 
-  if (!isLoggedIn && !isOnLoginPage) {
+export default auth((req) => {
+  const { pathname } = req.nextUrl
+  const isLoggedIn = !!req.auth
+
+  // Allow public routes (login + all /affiliate/* pages)
+  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  // Also allow the affiliate API endpoint unauthenticated
+  const isPublicApi = pathname.startsWith('/api/affiliate/apply')
+
+  if (!isLoggedIn && !isPublic && !isPublicApi) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  if (isLoggedIn && isOnLoginPage) {
+  if (isLoggedIn && pathname === '/login') {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
@@ -17,5 +25,5 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
 }

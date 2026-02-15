@@ -521,3 +521,34 @@ model OutboundMessageLog {
   @@index([sentAt])
   @@map("outbound_message_logs")
 }
+
+// ============================================
+// AFFILIATE PROGRAMME
+// ============================================
+
+enum AffiliateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AffiliateApplication {
+  id                 String          @id @default(cuid())
+  name               String
+  email              String
+  companyDescription String
+  status             AffiliateStatus @default(PENDING)
+  reviewedAt         DateTime?
+  reviewedById       String?         // user id of admin who reviewed
+  reviewNotes        String?         // internal notes from reviewer
+  referralCode       String?         @unique // generated on approval
+  commissionRate     Float           @default(0.25)  // 25%
+  commissionMonths   Int             @default(12)    // 12-month term
+  approvedAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@map("affiliate_applications")
+}
