@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin, isSupervisorOrAbove } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,10 @@ function toDateInput(d: Date): string {
 
 export default async function IncidentsPage() {
   const user = await requireAuth()
+  // Incidents are safeguarding records: only supervisors+ may amend them and
+  // only admins may delete them (also enforced server-side).
+  const canEdit = isSupervisorOrAbove(user.role)
+  const canDelete = isAdmin(user.role)
 
   const [incidents, children] = await Promise.all([
     prisma.incidentLog.findMany({
@@ -159,19 +163,21 @@ export default async function IncidentsPage() {
                         {!incident.parentNotified && (
                           <MarkNotifiedButton id={incident.id} />
                         )}
-                        <IncidentFormDialog
-                          childOptions={childOptions}
-                          incident={{
-                            id: incident.id,
-                            childId: incident.childId,
-                            date: toDateInput(incident.date),
-                            time: incident.time,
-                            description: incident.description,
-                            actionTaken: incident.actionTaken,
-                            witnesses: incident.witnesses,
-                          }}
-                        />
-                        <DeleteIncidentButton id={incident.id} />
+                        {canEdit && (
+                          <IncidentFormDialog
+                            childOptions={childOptions}
+                            incident={{
+                              id: incident.id,
+                              childId: incident.childId,
+                              date: toDateInput(incident.date),
+                              time: incident.time,
+                              description: incident.description,
+                              actionTaken: incident.actionTaken,
+                              witnesses: incident.witnesses,
+                            }}
+                          />
+                        )}
+                        {canDelete && <DeleteIncidentButton id={incident.id} />}
                       </div>
                     </div>
                   </div>

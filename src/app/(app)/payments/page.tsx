@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,8 @@ import {
 
 export default async function PaymentsPage() {
   const user = await requireAuth()
+  // Only administrators may delete invoices (enforced server-side too).
+  const canManage = isAdmin(user.role)
 
   const [invoices, stats, children] = await Promise.all([
     prisma.paymentInvoice.findMany({
@@ -176,7 +178,7 @@ export default async function PaymentsPage() {
                     <div className="flex flex-col gap-2">
                       <SendReminderButton id={invoice.id} />
                       <MarkPaidButton id={invoice.id} />
-                      <DeleteInvoiceButton id={invoice.id} />
+                      {canManage && <DeleteInvoiceButton id={invoice.id} />}
                     </div>
                   </div>
                 </div>
@@ -222,7 +224,7 @@ export default async function PaymentsPage() {
                     <div className="flex items-center gap-2">
                       <SendReminderButton id={invoice.id} />
                       <MarkPaidButton id={invoice.id} />
-                      <DeleteInvoiceButton id={invoice.id} />
+                      {canManage && <DeleteInvoiceButton id={invoice.id} />}
                     </div>
                   </div>
                 </div>
@@ -263,7 +265,7 @@ export default async function PaymentsPage() {
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Paid
                     </Badge>
-                    <DeleteInvoiceButton id={invoice.id} />
+                    {canManage && <DeleteInvoiceButton id={invoice.id} />}
                   </div>
                 </div>
               ))}

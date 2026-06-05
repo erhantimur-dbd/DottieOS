@@ -200,12 +200,14 @@ export function ScheduleForm({
 // USER MANAGEMENT
 // ============================================
 
-export function AddUserDialog() {
+export function AddUserDialog({ canAssignOwner = false }: { canAssignOwner?: boolean }) {
   const router = useRouter()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "STAFF" })
+  // The Owner role can only be granted by an existing owner.
+  const roleOptions = ROLES.filter((r) => r.value !== "OWNER" || canAssignOwner)
 
   const submit = () =>
     startTransition(async () => {
@@ -255,7 +257,7 @@ export function AddUserDialog() {
           <div className="space-y-2">
             <Label htmlFor="uRole">Role</Label>
             <select id="uRole" className={selectClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
         </div>
@@ -270,16 +272,31 @@ export function AddUserDialog() {
   )
 }
 
-export function UserRoleSelect({ userId, role }: { userId: string; role: string }) {
+export function UserRoleSelect({
+  userId,
+  role,
+  canManageOwner = false,
+}: {
+  userId: string
+  role: string
+  canManageOwner?: boolean
+}) {
   const router = useRouter()
   const { toast } = useToast()
   const [pending, startTransition] = useTransition()
 
+  // Only owners can promote to / demote from Owner. Keep the current value
+  // visible so an owner row still renders correctly for non-owner admins.
+  const roleOptions = ROLES.filter(
+    (r) => r.value !== "OWNER" || canManageOwner || role === "OWNER"
+  )
+  const locked = role === "OWNER" && !canManageOwner
+
   return (
     <select
-      className="h-9 rounded-md border-2 border-black bg-white px-2 text-sm"
+      className="h-9 rounded-md border-2 border-black bg-white px-2 text-sm disabled:opacity-60"
       value={role}
-      disabled={pending}
+      disabled={pending || locked}
       onChange={(e) => {
         const next = e.target.value
         startTransition(async () => {
@@ -296,7 +313,7 @@ export function UserRoleSelect({ userId, role }: { userId: string; role: string 
         })
       }}
     >
-      {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+      {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
     </select>
   )
 }

@@ -1,4 +1,4 @@
-import { requireAuth, isAdmin } from "@/lib/auth"
+import { requireAuth, isAdmin, isOwner } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,8 @@ import {
 
 export default async function SettingsPage() {
   const user = await requireAuth()
+  // Only an owner may grant/modify/remove Owner-level access.
+  const viewerIsOwner = isOwner(user.role)
 
   const [organisation, orgUsers] = await Promise.all([
     prisma.organisation.findUnique({
@@ -120,8 +122,10 @@ export default async function SettingsPage() {
                     </>
                   ) : (
                     <>
-                      <UserRoleSelect userId={orgUser.id} role={orgUser.role} />
-                      <DeleteUserButton userId={orgUser.id} />
+                      <UserRoleSelect userId={orgUser.id} role={orgUser.role} canManageOwner={viewerIsOwner} />
+                      {(viewerIsOwner || orgUser.role !== 'OWNER') && (
+                        <DeleteUserButton userId={orgUser.id} />
+                      )}
                     </>
                   )}
                 </div>
@@ -129,7 +133,7 @@ export default async function SettingsPage() {
             ))}
           </div>
           <div className="mt-4">
-            <AddUserDialog />
+            <AddUserDialog canAssignOwner={viewerIsOwner} />
           </div>
         </CardContent>
       </Card>

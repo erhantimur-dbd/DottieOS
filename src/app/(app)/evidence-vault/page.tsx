@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +9,8 @@ import { ToggleReadyButton, DeleteEvidenceButton } from "./evidence-actions"
 
 export default async function EvidenceVaultPage() {
   const user = await requireAuth()
+  // Only administrators may delete evidence items (enforced server-side too).
+  const canManage = isAdmin(user.role)
 
   const evidenceItems = await prisma.evidenceItem.findMany({
     where: { organisationId: user.organisationId },
@@ -186,7 +188,7 @@ export default async function EvidenceVaultPage() {
                               notes: item.notes,
                             }}
                           />
-                          <DeleteEvidenceButton id={item.id} />
+                          {canManage && <DeleteEvidenceButton id={item.id} />}
                         </div>
                       </div>
                     </div>

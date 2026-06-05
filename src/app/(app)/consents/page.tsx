@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +9,8 @@ import { ConsentRecordDialog } from "./consent-form"
 
 export default async function ConsentsPage() {
   const user = await requireAuth()
+  // Only administrators may delete consent templates (enforced server-side too).
+  const canManage = isAdmin(user.role)
 
   const [children, templates] = await Promise.all([
     prisma.child.findMany({
@@ -117,7 +119,7 @@ export default async function ConsentsPage() {
                           requiresExpiry: template.requiresExpiry,
                         }}
                       />
-                      <DeleteTemplateButton id={template.id} />
+                      {canManage && <DeleteTemplateButton id={template.id} />}
                     </div>
                   </div>
                   {template.description && (
