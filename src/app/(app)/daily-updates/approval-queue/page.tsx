@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Check, Eye, AlertCircle, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
-import { formatDate } from "@/lib/utils"
+import { ApproveButton, SendNowButton } from "./approval-actions"
 
 export default async function ApprovalQueuePage() {
   const user = await requireAuth()
@@ -214,10 +214,7 @@ export default async function ApprovalQueuePage() {
                               View & Edit
                             </Button>
                           </Link>
-                          <Button className="flex-1">
-                            <Check className="h-4 w-4 mr-2" />
-                            Approve
-                          </Button>
+                          <ApproveButton dailyUpdateId={update.id} />
                         </div>
                       </CardContent>
                     </Card>
@@ -262,16 +259,20 @@ export default async function ApprovalQueuePage() {
                           </p>
                         )}
                         <p className="text-xs text-gray-600">
-                          Will be sent to {child.guardians.length} guardian{child.guardians.length !== 1 ? 's' : ''} at 17:00
+                          Scheduled to send to {child.guardians.length} guardian{child.guardians.length !== 1 ? 's' : ''} at 17:00, or send now.
                         </p>
-                        <Link
-                          href={`/daily-updates/${child.id}/${today.toISOString().split('T')[0]}`}
-                        >
-                          <Button variant="outline" size="sm" className="w-full mt-2">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </Button>
-                        </Link>
+                        <div className="flex gap-2 mt-2">
+                          <Link
+                            href={`/daily-updates/${child.id}/${today.toISOString().split('T')[0]}`}
+                            className="flex-1"
+                          >
+                            <Button variant="outline" size="sm" className="w-full">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                          </Link>
+                          <SendNowButton dailyUpdateId={update.id} className="flex-1" />
+                        </div>
                       </CardContent>
                     </Card>
                   )

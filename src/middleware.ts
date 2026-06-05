@@ -23,8 +23,9 @@ export default auth((req) => {
 
   // Allow public routes (login + all /affiliate/* pages)
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  // Also allow the affiliate API endpoint unauthenticated
-  const isPublicApi = pathname.startsWith('/api/affiliate/apply')
+  // Allow API endpoints that do their own auth (affiliate intake, cron sender).
+  const isPublicApi =
+    pathname.startsWith('/api/affiliate/apply') || pathname.startsWith('/api/cron')
 
   if (!isLoggedIn && !isPublic && !isPublicApi) {
     return NextResponse.redirect(new URL('/login', req.url))
