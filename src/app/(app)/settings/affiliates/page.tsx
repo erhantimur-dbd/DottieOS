@@ -10,7 +10,7 @@ import {
   XCircle,
   Clock,
   Users,
-  BadgePound,
+  PoundSterling,
   CalendarDays,
   ExternalLink
 } from "lucide-react"
@@ -102,7 +102,7 @@ export default async function AffiliatesAdminPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <BadgePound className="h-4 w-4" />
+              <PoundSterling className="h-4 w-4" />
               Commission Rate
             </CardTitle>
           </CardHeader>

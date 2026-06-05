@@ -1,7 +1,10 @@
 import { PrismaClient, UserRole, AttendanceStatus, PaymentStatus, ConsentStatus, CommunicationChannel, DailyUpdateStatus, TaskCategory, TaskStatus, EvidenceStatus } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
+import 'dotenv/config'
 
-const prisma = new PrismaClient()
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log('🌱 Seeding database...')
@@ -359,7 +362,7 @@ async function main() {
       const template = consentTemplates[j]
 
       // Mix of statuses
-      let status = ConsentStatus.SIGNED
+      let status: ConsentStatus = ConsentStatus.SIGNED
       let signedDate: Date | undefined = new Date('2024-01-01')
       let expiryDate: Date | undefined
 
@@ -482,7 +485,7 @@ async function main() {
     })
 
     // Create daily update with different statuses
-    let updateStatus = DailyUpdateStatus.NEEDS_APPROVAL
+    let updateStatus: DailyUpdateStatus = DailyUpdateStatus.NEEDS_APPROVAL
 
     if (i < 3) {
       updateStatus = DailyUpdateStatus.APPROVED
@@ -499,7 +502,7 @@ async function main() {
         status: updateStatus,
         compiledEmailContent: `Daily Update - ${child.firstName} ${child.lastName}\n\nWellbeing: ${dailyNote.wellbeing}\nMeals: ${dailyNote.meals}\nNaps: ${dailyNote.naps}\nActivities: ${dailyNote.activities}`,
         compiledWhatsAppContent: `${child.firstName}'s day:\n✓ ${dailyNote.wellbeing}\n✓ ${dailyNote.meals}\n✓ ${dailyNote.naps}\n✓ ${dailyNote.activities}`,
-        sentAt: updateStatus === DailyUpdateStatus.SENT ? new Date() : undefined,
+        sentAt: undefined,
         organisationId: org.id
       }
     })
