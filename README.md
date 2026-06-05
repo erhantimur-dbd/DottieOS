@@ -26,14 +26,33 @@ A comprehensive, full-stack childcare management system designed for UK childmin
 8. **Evidence Vault** - Inspection readiness tracking
 9. **Daily Updates** - Staff notes → Approval → Automatic sending
 10. **Settings** - Organisation and user management
+11. **Audit Log** - Organisation-wide activity trail (admin-only)
 
 ## 🏗️ Technical Stack
 
-- **Framework**: Next.js 16 (App Router) + TypeScript
-- **Database**: PostgreSQL + Prisma ORM
-- **Authentication**: NextAuth.js v5 (JWT)
-- **UI**: Tailwind CSS v4 + shadcn/ui
+- **Framework**: Next.js 16 (App Router, Server Actions) + TypeScript
+- **Database**: PostgreSQL + Prisma 7 (via the `@prisma/adapter-pg` driver adapter)
+- **Authentication**: NextAuth.js v5 (JWT), with edge-safe middleware RBAC
+- **UI**: Tailwind CSS v4 + shadcn/ui + recharts
 - **Styling**: Black & white high-contrast design
+
+### Implemented capabilities
+
+- **Full CRUD** on every module via type-safe Server Actions — each action is
+  organisation-scoped, zod-validated, RBAC-checked, and writes to the audit trail.
+- **Working Daily Updates pipeline**: save notes → compile email/WhatsApp → submit
+  for approval (auto-creates a task) → supervisor approve → send to guardians.
+- **Pluggable messaging** (`src/lib/messaging`): email/WhatsApp adapters are
+  *simulated* by default (every send is recorded in `OutboundMessageLog` as a real
+  audit trail). Set `RESEND_API_KEY` / `TWILIO_*` to enable real delivery — no call
+  sites change.
+- **Scheduled sending**: a `CRON_SECRET`-guarded cron route
+  (`/api/cron/send-daily-updates`) delivers approved updates at each org's configured
+  time (registered in `vercel.json`).
+- **Audit Log** (admin-only) recording who changed what, with filters.
+- **CSV export** of attendance registers and payment reports.
+- **Dashboard charts** (attendance trend + outstanding payments) and a **global
+  search** across children, guardians, tasks, and incidents.
 
 ## 🚀 Getting Started
 
@@ -115,9 +134,20 @@ The seed script creates:
 
 ```env
 DATABASE_URL="postgresql://user:pass@localhost:5432/dottie_os"
-NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+AUTH_SECRET="generate-with-openssl-rand-base64-32"
 NEXTAUTH_URL="http://localhost:3000"
+CRON_SECRET="generate-with-openssl-rand-base64-32"   # Bearer token for the scheduled sender
+
+# Optional — enable real message delivery (simulated/logged when unset)
+# RESEND_API_KEY="..."        # Email
+# TWILIO_ACCOUNT_SID="..."    # WhatsApp
+# TWILIO_AUTH_TOKEN="..."
+# TWILIO_WHATSAPP_FROM="whatsapp:+14155238886"
 ```
+
+> **Prisma 7 note:** the database connection URL lives in `prisma.config.ts`
+> (CLI) and is supplied to the client through the pg driver adapter at runtime —
+> it is no longer set inside `schema.prisma`.
 
 ## 🧪 Database Commands
 
