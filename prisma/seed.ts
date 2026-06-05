@@ -7,6 +7,16 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
+  // This seed DELETES ALL DATA and creates demo accounts with a well-known
+  // password. Refuse to run against production unless explicitly forced.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error(
+      '✋ Refusing to seed: NODE_ENV=production. This wipes all data and creates demo ' +
+      'accounts. Set ALLOW_PROD_SEED=true only if you really mean it.'
+    )
+    process.exit(1)
+  }
+
   console.log('🌱 Seeding database...')
 
   // Clear existing data
@@ -47,8 +57,9 @@ async function main() {
 
   console.log('✅ Created organisation: Sunshine Nursery')
 
-  // Create Users
-  const passwordHash = await bcrypt.hash('admin123', 10)
+  // Create Users. The demo password can be overridden via SEED_PASSWORD.
+  const demoPassword = process.env.SEED_PASSWORD || 'admin123'
+  const passwordHash = await bcrypt.hash(demoPassword, 10)
 
   const admin = await prisma.user.create({
     data: {
@@ -542,9 +553,9 @@ async function main() {
   console.log('🎉 Seeding completed successfully!')
   console.log('')
   console.log('Demo login credentials:')
-  console.log('  Admin: admin@demo.com / admin123')
-  console.log('  Supervisor: supervisor@demo.com / admin123')
-  console.log('  Staff: staff1@demo.com / admin123')
+  console.log(`  Admin: admin@demo.com / ${demoPassword}`)
+  console.log(`  Supervisor: supervisor@demo.com / ${demoPassword}`)
+  console.log(`  Staff: staff1@demo.com / ${demoPassword}`)
   console.log('')
 }
 

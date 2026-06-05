@@ -23,39 +23,31 @@ export async function POST(req: NextRequest) {
 
     const { name, email, companyDescription } = parsed.data
 
-    // Prevent duplicate applications from the same email address
+    // Look up any prior application. To avoid leaking whether an email is already a
+    // partner / under review (account enumeration), every non-validation outcome
+    // returns the same generic success response; we just vary what we persist.
     const existing = await prisma.affiliateApplication.findFirst({
       where: { email: email.toLowerCase() },
     })
 
     if (existing) {
-      if (existing.status === "APPROVED") {
-        return NextResponse.json(
-          { error: "This email address is already associated with an approved affiliate partner." },
-          { status: 409 }
-        )
+      // Only resurrect a previously rejected application; pending/approved records
+      // are left untouched so a resubmission can't overwrite them.
+      if (existing.status === "REJECTED") {
+        await prisma.affiliateApplication.update({
+          where: { id: existing.id },
+          data: {
+            name,
+            companyDescription,
+            status: "PENDING",
+            reviewedAt: null,
+            reviewedById: null,
+            reviewNotes: null,
+            updatedAt: new Date(),
+          },
+        })
       }
-      if (existing.status === "PENDING") {
-        return NextResponse.json(
-          { error: "An application from this email address is already under review." },
-          { status: 409 }
-        )
-      }
-      // REJECTED — allow reapplication by updating the record
-      await prisma.affiliateApplication.update({
-        where: { id: existing.id },
-        data: {
-          name,
-          companyDescription,
-          status: "PENDING",
-          reviewedAt: null,
-          reviewedById: null,
-          reviewNotes: null,
-          updatedAt: new Date(),
-        },
-      })
-
-      return NextResponse.json({ success: true, reapplication: true })
+      return NextResponse.json({ success: true })
     }
 
     await prisma.affiliateApplication.create({

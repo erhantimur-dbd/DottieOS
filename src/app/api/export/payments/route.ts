@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { recordAudit } from "@/lib/audit"
 import { toCsv, csvResponse } from "@/lib/export/csv"
 import { formatDate } from "@/lib/utils"
 
@@ -32,6 +33,15 @@ export async function GET(req: NextRequest) {
     { header: "Paid date", value: (r) => (r.paidDate ? formatDate(r.paidDate) : "") },
     { header: "Reminder sent", value: (r) => (r.reminderSentAt ? formatDate(r.reminderSentAt) : "") },
   ])
+
+  await recordAudit({
+    organisationId: user.organisationId,
+    actorId: user.id,
+    actorName: user.name ?? user.email ?? "Unknown",
+    action: "EXPORT",
+    entityType: "PaymentInvoice",
+    summary: `Exported payments${status ? ` (${status})` : ""} (${invoices.length} invoices)`,
+  })
 
   return csvResponse(csv, `payments-${status ? status.toLowerCase() + "-" : ""}export.csv`)
 }

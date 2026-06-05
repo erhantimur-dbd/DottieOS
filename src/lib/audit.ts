@@ -4,7 +4,7 @@ interface RecordAuditArgs {
   organisationId: string
   actorId?: string | null
   actorName: string
-  action: "CREATE" | "UPDATE" | "DELETE" | "APPROVE" | "SEND" | "LOGIN" | "STATUS"
+  action: "CREATE" | "UPDATE" | "DELETE" | "APPROVE" | "SEND" | "LOGIN" | "STATUS" | "EXPORT"
   entityType: string
   entityId?: string | null
   summary: string

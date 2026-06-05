@@ -3,9 +3,26 @@ import Credentials from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { authConfigBase } from "./config.base"
+import { recordAudit } from "@/lib/audit"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfigBase,
+  events: {
+    async signIn({ user }) {
+      // Record a login in the organisation audit trail. Best-effort; never blocks sign-in.
+      const organisationId = (user as { organisationId?: string }).organisationId
+      if (!organisationId) return
+      await recordAudit({
+        organisationId,
+        actorId: user.id ?? null,
+        actorName: user.name ?? user.email ?? "Unknown",
+        action: "LOGIN",
+        entityType: "User",
+        entityId: user.id ?? null,
+        summary: `Signed in`,
+      })
+    },
+  },
   providers: [
     Credentials({
       name: "credentials",

@@ -4,7 +4,7 @@ import { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { recordAudit } from "@/lib/audit"
-import { getActionUser, parseInput, err, ok, type ActionResult } from "@/lib/action-utils"
+import { getActionUser, parseInput, err, ok, requireAdmin, requireSupervisor, type ActionResult } from "@/lib/action-utils"
 
 const createSchema = z.object({
   childId: z.string().min(1, "Child is required"),
@@ -64,24 +64,27 @@ export async function logIncident(input: unknown): Promise<ActionResult> {
 
 export async function updateIncident(input: unknown): Promise<ActionResult> {
   const user = await getActionUser()
+  // Incidents are safeguarding records: only supervisors and above may amend them.
+  const denied = requireSupervisor(user.role)
+  if (denied) return err(denied)
+
   const parsed = parseInput(updateSchema, input)
   if (!parsed.success) return err(parsed.error)
   const d = parsed.data
 
   const existing = await prisma.incidentLog.findFirst({
     where: { id: d.id, organisationId: user.organisationId },
+    include: { child: true },
   })
   if (!existing) return err("Incident not found")
 
-  const child = await prisma.child.findFirst({
-    where: { id: d.childId, organisationId: user.organisationId },
-  })
-  if (!child) return err("Child not found")
+  const child = existing.child
 
+  // The child an incident relates to is immutable — reassigning it would corrupt
+  // the safeguarding record. Amendments may only correct the incident details.
   await prisma.incidentLog.update({
     where: { id: d.id },
     data: {
-      childId: d.childId,
       date: new Date(d.date),
       time: d.time,
       description: d.description,
@@ -132,6 +135,10 @@ export async function markParentNotified(id: string): Promise<ActionResult> {
 
 export async function deleteIncident(id: string): Promise<ActionResult> {
   const user = await getActionUser()
+  // Deleting a safeguarding record is an administrator-only action.
+  const adminErr = requireAdmin(user.role)
+  if (adminErr) return err(adminErr)
+
   const existing = await prisma.incidentLog.findFirst({
     where: { id, organisationId: user.organisationId },
   })

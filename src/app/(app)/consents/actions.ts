@@ -4,7 +4,7 @@ import { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { recordAudit } from "@/lib/audit"
-import { getActionUser, parseInput, err, ok, type ActionResult } from "@/lib/action-utils"
+import { getActionUser, parseInput, err, ok, requireAdmin, type ActionResult } from "@/lib/action-utils"
 
 const STATUSES = ["MISSING", "SIGNED", "EXPIRED"] as const
 
@@ -85,6 +85,9 @@ export async function updateTemplate(input: unknown): Promise<ActionResult> {
 
 export async function deleteTemplate(id: string): Promise<ActionResult> {
   const user = await getActionUser()
+  const adminErr = requireAdmin(user.role)
+  if (adminErr) return err(adminErr)
+
   const existing = await prisma.consentTemplate.findFirst({
     where: { id, organisationId: user.organisationId },
   })

@@ -46,9 +46,9 @@ export default async function PaymentsPage() {
   const unpaidInvoices = invoices.filter(i => i.status === 'UNPAID')
   const paidInvoices = invoices.filter(i => i.status === 'PAID')
 
-  const overdueAmount = statsMap.get('OVERDUE')?._sum.amount || 0
-  const unpaidAmount = statsMap.get('UNPAID')?._sum.amount || 0
-  const paidAmount = statsMap.get('PAID')?._sum.amount || 0
+  const overdueAmount = Number(statsMap.get('OVERDUE')?._sum.amount ?? 0)
+  const unpaidAmount = Number(statsMap.get('UNPAID')?._sum.amount ?? 0)
+  const paidAmount = Number(statsMap.get('PAID')?._sum.amount ?? 0)
 
   return (
     <div className="space-y-6">

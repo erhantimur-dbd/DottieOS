@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { requireAuth, isSupervisorOrAbove, isAdmin } from "@/lib/auth"
+import { requireAuth, isSupervisorOrAbove, isAdmin, isOwner } from "@/lib/auth"
 import type { UserRole } from "@prisma/client"
 
 export type ActionResult<T = undefined> =
@@ -55,4 +55,8 @@ export function requireSupervisor(role: UserRole): string | null {
 
 export function requireAdmin(role: UserRole): string | null {
   return isAdmin(role) ? null : "Only administrators can perform this action."
+}
+
+export function requireOwner(role: UserRole): string | null {
+  return isOwner(role) ? null : "Only the organisation owner can perform this action."
 }

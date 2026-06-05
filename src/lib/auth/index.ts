@@ -26,6 +26,10 @@ export function isAdmin(userRole: UserRole): boolean {
   return hasRole(userRole, [UserRole.OWNER, UserRole.ADMIN])
 }
 
+export function isOwner(userRole: UserRole): boolean {
+  return userRole === UserRole.OWNER
+}
+
 export function isSupervisorOrAbove(userRole: UserRole): boolean {
   return hasRole(userRole, [UserRole.OWNER, UserRole.ADMIN, UserRole.SUPERVISOR])
 }

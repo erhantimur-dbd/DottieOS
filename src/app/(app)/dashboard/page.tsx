@@ -124,7 +124,7 @@ export default async function DashboardPage({
 
   const paymentsData = ['PAID', 'UNPAID', 'OVERDUE'].map(status => ({
     status,
-    amount: paymentsByStatus.find(p => p.status === status)?._sum.amount ?? 0,
+    amount: Number(paymentsByStatus.find(p => p.status === status)?._sum.amount ?? 0),
   }))
 
   const metrics = [

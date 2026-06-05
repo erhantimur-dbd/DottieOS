@@ -218,7 +218,7 @@ enum PaymentStatus {
 model PaymentInvoice {
   id             String        @id @default(cuid())
   childId        String
-  amount         Float
+  amount         Decimal       @db.Decimal(10, 2)
   dueDate        DateTime
   paidDate       DateTime?
   status         PaymentStatus @default(UNPAID)

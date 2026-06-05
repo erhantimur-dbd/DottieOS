@@ -13,6 +13,7 @@ import {
   requireAdmin,
   type ActionResult,
 } from "@/lib/action-utils"
+import { isOwner } from "@/lib/auth"
 
 // ============================================
 // ORGANISATION DETAILS
@@ -127,6 +128,11 @@ export async function createUser(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return err(parsed.error)
   const d = parsed.data
 
+  // Only an existing owner may mint another owner.
+  if (d.role === "OWNER" && !isOwner(user.role)) {
+    return err("Only the organisation owner can grant the Owner role.")
+  }
+
   const existing = await prisma.user.findUnique({ where: { email: d.email } })
   if (existing) return err("A user with that email already exists")
 
@@ -175,6 +181,30 @@ export async function updateUserRole(input: unknown): Promise<ActionResult> {
   })
   if (!target) return err("User not found")
 
+  // Owner accounts may only be promoted/demoted by an owner, and the Owner role
+  // may only be granted by an owner.
+  if ((target.role === "OWNER" || d.role === "OWNER") && !isOwner(user.role)) {
+    return err("Only the organisation owner can change Owner-level access.")
+  }
+
+  // Never let the organisation lose its last owner/administrator.
+  if (
+    (target.role === "OWNER" || target.role === "ADMIN") &&
+    d.role !== "OWNER" &&
+    d.role !== "ADMIN"
+  ) {
+    const remainingAdmins = await prisma.user.count({
+      where: {
+        organisationId: user.organisationId,
+        role: { in: ["OWNER", "ADMIN"] },
+        id: { not: target.id },
+      },
+    })
+    if (remainingAdmins === 0) {
+      return err("You cannot remove the last administrator from the organisation.")
+    }
+  }
+
   await prisma.user.update({
     where: { id: d.userId },
     data: { role: d.role },
@@ -205,6 +235,25 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     where: { id: userId, organisationId: user.organisationId },
   })
   if (!target) return err("User not found")
+
+  // Owner accounts may only be removed by an owner.
+  if (target.role === "OWNER" && !isOwner(user.role)) {
+    return err("Only the organisation owner can remove an Owner account.")
+  }
+
+  // Never let the organisation lose its last owner/administrator.
+  if (target.role === "OWNER" || target.role === "ADMIN") {
+    const remainingAdmins = await prisma.user.count({
+      where: {
+        organisationId: user.organisationId,
+        role: { in: ["OWNER", "ADMIN"] },
+        id: { not: target.id },
+      },
+    })
+    if (remainingAdmins === 0) {
+      return err("You cannot remove the last administrator from the organisation.")
+    }
+  }
 
   await prisma.user.delete({ where: { id: userId } })
 
