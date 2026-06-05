@@ -1,10 +1,15 @@
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckSquare, Plus, Clock, CheckCircle } from "lucide-react"
+import { CheckSquare, Clock } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { TaskFormDialog } from "./task-form"
+import { CompleteTaskButton, DeleteTaskButton } from "./task-actions"
+
+function toDateInput(d: Date | null): string | null {
+  return d ? d.toISOString().slice(0, 10) : null
+}
 
 export default async function TasksPage() {
   const user = await requireAuth()
@@ -14,7 +19,7 @@ export default async function TasksPage() {
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
-  const [tasks, todayTasks, overdueTasks] = await Promise.all([
+  const [tasks, todayTasks, overdueTasks, users] = await Promise.all([
     prisma.task.findMany({
       where: { organisationId: user.organisationId },
       include: {
@@ -39,6 +44,11 @@ export default async function TasksPage() {
         dueDate: { lt: today },
         status: { not: 'COMPLETED' }
       }
+    }),
+    prisma.user.findMany({
+      where: { organisationId: user.organisationId },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' }
     })
   ])
 
@@ -62,10 +72,7 @@ export default async function TasksPage() {
             Manage and track tasks and to-dos
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Task
-        </Button>
+        <TaskFormDialog users={users} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -151,9 +158,7 @@ export default async function TasksPage() {
                         )}
                       </div>
                     </div>
-                    <Button size="sm">
-                      Complete
-                    </Button>
+                    <CompleteTaskButton id={task.id} />
                   </div>
                 </div>
               ))}
@@ -189,9 +194,7 @@ export default async function TasksPage() {
                         </Badge>
                       </div>
                     </div>
-                    <Button size="sm">
-                      Complete
-                    </Button>
+                    <CompleteTaskButton id={task.id} />
                   </div>
                 </div>
               ))}
@@ -212,10 +215,7 @@ export default async function TasksPage() {
               <p className="text-gray-600 text-center mb-4">
                 Create your first task to get started.
               </p>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Task
-              </Button>
+              <TaskFormDialog users={users} />
             </div>
           ) : (
             <div className="space-y-2">
@@ -246,9 +246,24 @@ export default async function TasksPage() {
                         )}
                       </div>
                     </div>
-                    <Badge variant={task.status === 'IN_PROGRESS' ? 'warning' : 'secondary'}>
-                      {task.status.replace('_', ' ')}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={task.status === 'IN_PROGRESS' ? 'warning' : 'secondary'}>
+                        {task.status.replace('_', ' ')}
+                      </Badge>
+                      <TaskFormDialog
+                        users={users}
+                        task={{
+                          id: task.id,
+                          title: task.title,
+                          description: task.description,
+                          category: task.category,
+                          status: task.status,
+                          dueDate: toDateInput(task.dueDate),
+                          assignedToId: task.assignedToId,
+                        }}
+                      />
+                      <DeleteTaskButton id={task.id} />
+                    </div>
                   </div>
                 </div>
               ))}
