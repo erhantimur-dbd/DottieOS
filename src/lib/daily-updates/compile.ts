@@ -1,4 +1,4 @@
-import type { Child, DailyNote, Organisation } from "@prisma/client"
+import type { Child, DailyNote } from "@prisma/client"
 import { formatDate } from "@/lib/utils"
 
 type CompileInput = {
@@ -30,7 +30,6 @@ const SECTIONS: { key: keyof CompileInput["note"]; label: string; emoji: string 
  * server actions, the cron job, or a preview.
  */
 export function compileDailyUpdate({ child, note, organisationName }: CompileInput): CompiledMessages {
-  const name = `${child.firstName} ${child.lastName}`.trim()
   const dateLabel = formatDate(note.date)
   const org = organisationName ?? "Your childcare provider"
 

@@ -1,14 +1,20 @@
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, User, Calendar, Heart } from "lucide-react"
+import { User, Calendar, Heart } from "lucide-react"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
+import { ChildFormDialog } from "./child-form"
 
 export default async function ChildrenPage() {
   const user = await requireAuth()
+
+  const users = await prisma.user.findMany({
+    where: { organisationId: user.organisationId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
 
   const children = await prisma.child.findMany({
     where: { organisationId: user.organisationId },
@@ -44,10 +50,7 @@ export default async function ChildrenPage() {
             Manage children and their information
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Child
-        </Button>
+        <ChildFormDialog users={users} />
       </div>
 
       {children.length === 0 ? (
@@ -58,10 +61,7 @@ export default async function ChildrenPage() {
             <p className="text-gray-600 text-center mb-4">
               Get started by adding your first child to the system.
             </p>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add First Child
-            </Button>
+            <ChildFormDialog users={users} triggerLabel="Add First Child" />
           </CardContent>
         </Card>
       ) : (

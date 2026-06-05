@@ -59,7 +59,8 @@ export default async function DailyUpdateEditPage({
     })
   ])
 
-  const statusColors: Record<string, { variant: any; text: string }> = {
+  type BadgeVariant = "default" | "secondary" | "success" | "warning" | "danger" | "outline"
+  const statusColors: Record<string, { variant: BadgeVariant; text: string }> = {
     DRAFT: { variant: 'secondary', text: 'Draft' },
     NEEDS_APPROVAL: { variant: 'warning', text: 'Needs Approval' },
     APPROVED: { variant: 'success', text: 'Approved' },

@@ -1,10 +1,11 @@
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Shield, CheckCircle, XCircle, Plus, Upload } from "lucide-react"
+import { Shield, CheckCircle, XCircle } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { EvidenceFormDialog } from "./evidence-form"
+import { ToggleReadyButton, DeleteEvidenceButton } from "./evidence-actions"
 
 export default async function EvidenceVaultPage() {
   const user = await requireAuth()
@@ -36,10 +37,7 @@ export default async function EvidenceVaultPage() {
             Inspection readiness and compliance evidence
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Evidence Item
-        </Button>
+        <EvidenceFormDialog />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -165,11 +163,7 @@ export default async function EvidenceVaultPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload
-                        </Button>
+                      <div className="flex flex-col items-end gap-2">
                         {item.status === 'READY' ? (
                           <Badge variant="success">
                             <CheckCircle className="h-3 w-3 mr-1" />
@@ -181,6 +175,19 @@ export default async function EvidenceVaultPage() {
                             Not Ready
                           </Badge>
                         )}
+                        <div className="flex items-center gap-2">
+                          <ToggleReadyButton id={item.id} status={item.status} />
+                          <EvidenceFormDialog
+                            item={{
+                              id: item.id,
+                              name: item.name,
+                              description: item.description,
+                              category: item.category,
+                              notes: item.notes,
+                            }}
+                          />
+                          <DeleteEvidenceButton id={item.id} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -199,10 +206,7 @@ export default async function EvidenceVaultPage() {
             <p className="text-gray-600 text-center mb-4">
               Start building your inspection readiness evidence vault.
             </p>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add First Item
-            </Button>
+            <EvidenceFormDialog trigger="first" />
           </CardContent>
         </Card>
       )}

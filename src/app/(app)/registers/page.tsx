@@ -1,38 +1,54 @@
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardList, CheckCircle, XCircle, Calendar } from "lucide-react"
+import { ClipboardList, CheckCircle, Download } from "lucide-react"
 import { formatDate, formatTime } from "@/lib/utils"
+import {
+  CheckInButton,
+  CheckOutButton,
+  AttendanceStatusSelect,
+} from "./register-actions"
+import { RegisterDatePicker } from "./register-date-picker"
 
-export default async function RegistersPage() {
+/** yyyy-mm-dd string for a given date in UTC terms. */
+function toDateStr(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    d.getUTCDate()
+  ).padStart(2, "0")}`
+}
+
+export default async function RegistersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>
+}) {
   const user = await requireAuth()
+  const { date: dateParam } = await searchParams
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // Resolve the requested day at UTC midnight to match the @db.Date column.
+  const base = dateParam ? new Date(dateParam) : new Date()
+  const day = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()))
+  const dateStr = toDateStr(day)
 
-  const [children, todayAttendance] = await Promise.all([
+  const [children, attendance] = await Promise.all([
     prisma.child.findMany({
       where: { organisationId: user.organisationId },
-      orderBy: { firstName: 'asc' }
+      orderBy: { firstName: "asc" },
     }),
     prisma.attendance.findMany({
       where: {
         organisationId: user.organisationId,
-        date: today
+        date: day,
       },
-      include: {
-        child: true
-      }
-    })
+    }),
   ])
 
-  const attendanceMap = new Map(todayAttendance.map(a => [a.childId, a]))
+  const attendanceMap = new Map(attendance.map((a) => [a.childId, a]))
 
-  const checkedIn = todayAttendance.filter(a => a.checkInTime && !a.checkOutTime).length
-  const checkedOut = todayAttendance.filter(a => a.checkOutTime).length
-  const notCheckedIn = children.length - todayAttendance.length
+  const checkedIn = attendance.filter((a) => a.checkInTime && !a.checkOutTime).length
+  const checkedOut = attendance.filter((a) => a.checkOutTime).length
+  const notCheckedIn = children.length - attendance.filter((a) => a.checkInTime).length
 
   return (
     <div className="space-y-6">
@@ -43,10 +59,16 @@ export default async function RegistersPage() {
             Mark children in and out, view attendance history
           </p>
         </div>
-        <Button variant="outline">
-          <Calendar className="h-4 w-4 mr-2" />
-          View History
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/export/attendance?date=${dateStr}`}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-md border-2 border-black bg-white text-sm font-medium hover:bg-black hover:text-white transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </a>
+          <RegisterDatePicker date={dateStr} />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -81,7 +103,7 @@ export default async function RegistersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">{checkedOut}</div>
-            <p className="text-xs text-gray-600 mt-1">Collected today</p>
+            <p className="text-xs text-gray-600 mt-1">Collected</p>
           </CardContent>
         </Card>
 
@@ -102,8 +124,8 @@ export default async function RegistersPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Today&apos;s Register</CardTitle>
-              <p className="text-sm text-gray-600 mt-1">{formatDate(today)}</p>
+              <CardTitle>Register</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">{formatDate(day)}</p>
             </div>
           </div>
         </CardHeader>
@@ -119,10 +141,11 @@ export default async function RegistersPage() {
           ) : (
             <div className="space-y-2">
               {children.map((child) => {
-                const attendance = attendanceMap.get(child.id)
-                const isCheckedIn = attendance?.checkInTime && !attendance.checkOutTime
-                const isCheckedOut = attendance?.checkOutTime
-                const isNotArrived = !attendance
+                const att = attendanceMap.get(child.id)
+                const isCheckedIn = att?.checkInTime && !att.checkOutTime
+                const isCheckedOut = att?.checkOutTime
+                const isNotArrived = !att?.checkInTime
+                const status = att?.status ?? "PRESENT"
 
                 return (
                   <div
@@ -133,10 +156,10 @@ export default async function RegistersPage() {
                       <div
                         className={`w-3 h-3 rounded-full ${
                           isCheckedOut
-                            ? 'bg-blue-500'
+                            ? "bg-blue-500"
                             : isCheckedIn
-                            ? 'bg-green-500'
-                            : 'bg-gray-300'
+                            ? "bg-green-500"
+                            : "bg-gray-300"
                         }`}
                       />
                       <div className="flex-1">
@@ -150,14 +173,16 @@ export default async function RegistersPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                      {attendance?.checkInTime && (
+                      {att?.checkInTime && (
                         <div className="text-sm text-gray-600">
-                          <span className="font-medium">In:</span> {formatTime(attendance.checkInTime)}
+                          <span className="font-medium">In:</span>{" "}
+                          {formatTime(att.checkInTime)}
                         </div>
                       )}
-                      {attendance?.checkOutTime && (
+                      {att?.checkOutTime && (
                         <div className="text-sm text-gray-600">
-                          <span className="font-medium">Out:</span> {formatTime(attendance.checkOutTime)}
+                          <span className="font-medium">Out:</span>{" "}
+                          {formatTime(att.checkOutTime)}
                         </div>
                       )}
 
@@ -177,16 +202,20 @@ export default async function RegistersPage() {
                         <Badge variant="secondary">Not arrived</Badge>
                       )}
 
+                      <div className="w-32">
+                        <AttendanceStatusSelect
+                          childId={child.id}
+                          date={dateStr}
+                          status={status}
+                        />
+                      </div>
+
                       <div className="flex gap-2">
-                        {!attendance?.checkInTime && (
-                          <Button size="sm">
-                            Check In
-                          </Button>
+                        {!att?.checkInTime && (
+                          <CheckInButton childId={child.id} date={dateStr} />
                         )}
-                        {attendance?.checkInTime && !attendance.checkOutTime && (
-                          <Button size="sm" variant="outline">
-                            Check Out
-                          </Button>
+                        {att?.checkInTime && !att.checkOutTime && (
+                          <CheckOutButton childId={child.id} date={dateStr} />
                         )}
                       </div>
                     </div>

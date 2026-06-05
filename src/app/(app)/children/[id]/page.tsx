@@ -3,10 +3,16 @@ import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Edit, Mail, Phone, User, Calendar, Heart, AlertCircle } from "lucide-react"
+import { ArrowLeft, Heart, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
 import { notFound } from "next/navigation"
+import { ChildFormDialog } from "../child-form"
+import { GuardianSection } from "../guardian-section"
+
+function toDateInput(d: Date): string {
+  return new Date(d).toISOString().slice(0, 10)
+}
 
 export default async function ChildDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth()
@@ -55,6 +61,37 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
     notFound()
   }
 
+  const users = await prisma.user.findMany({
+    where: { organisationId: user.organisationId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
+
+  const childForm = {
+    id: child.id,
+    firstName: child.firstName,
+    lastName: child.lastName,
+    dateOfBirth: toDateInput(child.dateOfBirth),
+    startDate: toDateInput(child.startDate),
+    room: child.room,
+    medicalNotes: child.medicalNotes,
+    dietaryNeeds: child.dietaryNeeds,
+    emergencyNotes: child.emergencyNotes,
+    keyPersonId: child.keyPersonId,
+  }
+
+  const guardianData = child.guardians.map(({ guardian, isPrimary }) => ({
+    id: guardian.id,
+    firstName: guardian.firstName,
+    lastName: guardian.lastName,
+    relationship: guardian.relationship,
+    email: guardian.email,
+    phone: guardian.phone,
+    preferredChannel: guardian.preferredChannel,
+    pickupPermission: guardian.pickupPermission,
+    isPrimary,
+  }))
+
   const age = Math.floor(
     (new Date().getTime() - new Date(child.dateOfBirth).getTime()) /
       (365.25 * 24 * 60 * 60 * 1000)
@@ -82,10 +119,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
             </p>
           </div>
         </div>
-        <Button>
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Details
-        </Button>
+        <ChildFormDialog users={users} child={childForm} />
       </div>
 
       {(missingConsents.length > 0 || overduePayments.length > 0) && (
@@ -163,59 +197,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Guardians & Contacts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {child.guardians.length === 0 ? (
-                <p className="text-gray-600 text-center py-4">No guardians linked</p>
-              ) : (
-                <div className="space-y-4">
-                  {child.guardians.map(({ guardian, isPrimary }) => (
-                    <div
-                      key={guardian.id}
-                      className="border-2 border-gray-200 rounded-md p-4"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h4 className="font-semibold">
-                            {guardian.firstName} {guardian.lastName}
-                          </h4>
-                          <p className="text-sm text-gray-600">{guardian.relationship}</p>
-                        </div>
-                        {isPrimary && (
-                          <Badge variant="default" className="text-xs">Primary</Badge>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        {guardian.email && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="h-4 w-4 text-gray-400" />
-                            <span>{guardian.email}</span>
-                          </div>
-                        )}
-                        {guardian.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span>{guardian.phone}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <span className="text-xs text-gray-600">
-                            Preferred: {guardian.preferredChannel}
-                          </span>
-                          <Badge variant={guardian.pickupPermission ? "success" : "secondary"} className="text-xs">
-                            {guardian.pickupPermission ? "Pickup allowed" : "No pickup"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <GuardianSection childId={child.id} guardians={guardianData} />
         </div>
 
         <div className="space-y-6">

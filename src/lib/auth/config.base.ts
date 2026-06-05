@@ -5,6 +5,10 @@ import type { UserRole } from "@prisma/client"
 // used from the middleware (Edge runtime). The Credentials provider (which touches
 // Prisma) is added in the Node-only config.ts.
 export const authConfigBase = {
+  // Trust the deployment host. NextAuth auto-trusts on Vercel, but a generic host
+  // (or `next start` locally / behind a proxy) needs this explicitly, otherwise
+  // every auth request fails with UntrustedHost and sessions never establish.
+  trustHost: true,
   providers: [],
   callbacks: {
     async jwt({ token, user }) {
