@@ -2,9 +2,27 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
-import type { UserRole } from "@prisma/client"
+import { authConfigBase } from "./config.base"
+import { recordAudit } from "@/lib/audit"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfigBase,
+  events: {
+    async signIn({ user }) {
+      // Record a login in the organisation audit trail. Best-effort; never blocks sign-in.
+      const organisationId = (user as { organisationId?: string }).organisationId
+      if (!organisationId) return
+      await recordAudit({
+        organisationId,
+        actorId: user.id ?? null,
+        actorName: user.name ?? user.email ?? "Unknown",
+        action: "LOGIN",
+        entityType: "User",
+        entityId: user.id ?? null,
+        summary: `Signed in`,
+      })
+    },
+  },
   providers: [
     Credentials({
       name: "credentials",
@@ -46,29 +64,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     })
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role as UserRole
-        token.organisationId = user.organisationId as string
-        token.organisationName = user.organisationName as string
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub!
-        session.user.role = token.role as UserRole
-        session.user.organisationId = token.organisationId as string
-        session.user.organisationName = token.organisationName as string
-      }
-      return session
-    }
-  },
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    strategy: "jwt",
-  },
 })

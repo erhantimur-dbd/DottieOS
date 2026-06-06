@@ -1,15 +1,22 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard, AlertCircle, CheckCircle, Clock, Plus, Send } from "lucide-react"
+import { CreditCard, AlertCircle, CheckCircle, Clock, Download } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { InvoiceFormDialog } from "./invoice-form"
+import {
+  MarkPaidButton,
+  SendReminderButton,
+  DeleteInvoiceButton,
+} from "./payment-actions"
 
 export default async function PaymentsPage() {
   const user = await requireAuth()
+  // Only administrators may delete invoices (enforced server-side too).
+  const canManage = isAdmin(user.role)
 
-  const [invoices, stats] = await Promise.all([
+  const [invoices, stats, children] = await Promise.all([
     prisma.paymentInvoice.findMany({
       where: { organisationId: user.organisationId },
       include: {
@@ -22,8 +29,18 @@ export default async function PaymentsPage() {
       where: { organisationId: user.organisationId },
       _count: true,
       _sum: { amount: true }
+    }),
+    prisma.child.findMany({
+      where: { organisationId: user.organisationId },
+      orderBy: { firstName: 'asc' },
+      select: { id: true, firstName: true, lastName: true }
     })
   ])
+
+  const childOptions = children.map((c) => ({
+    id: c.id,
+    name: `${c.firstName} ${c.lastName}`,
+  }))
 
   const statsMap = new Map(stats.map(s => [s.status, s]))
 
@@ -31,9 +48,9 @@ export default async function PaymentsPage() {
   const unpaidInvoices = invoices.filter(i => i.status === 'UNPAID')
   const paidInvoices = invoices.filter(i => i.status === 'PAID')
 
-  const overdueAmount = statsMap.get('OVERDUE')?._sum.amount || 0
-  const unpaidAmount = statsMap.get('UNPAID')?._sum.amount || 0
-  const paidAmount = statsMap.get('PAID')?._sum.amount || 0
+  const overdueAmount = Number(statsMap.get('OVERDUE')?._sum.amount ?? 0)
+  const unpaidAmount = Number(statsMap.get('UNPAID')?._sum.amount ?? 0)
+  const paidAmount = Number(statsMap.get('PAID')?._sum.amount ?? 0)
 
   return (
     <div className="space-y-6">
@@ -44,10 +61,16 @@ export default async function PaymentsPage() {
             Track invoices, payments, and chase outstanding balances
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Invoice
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/api/export/payments"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-md border-2 border-black bg-white text-sm font-medium hover:bg-black hover:text-white transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </a>
+          <InvoiceFormDialog childOptions={childOptions} />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -153,13 +176,9 @@ export default async function PaymentsPage() {
                       </Badge>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Button size="sm" variant="outline">
-                        <Send className="h-4 w-4 mr-2" />
-                        Send Reminder
-                      </Button>
-                      <Button size="sm">
-                        Mark Paid
-                      </Button>
+                      <SendReminderButton id={invoice.id} />
+                      <MarkPaidButton id={invoice.id} />
+                      {canManage && <DeleteInvoiceButton id={invoice.id} />}
                     </div>
                   </div>
                 </div>
@@ -202,9 +221,11 @@ export default async function PaymentsPage() {
                         Unpaid
                       </Badge>
                     </div>
-                    <Button size="sm">
-                      Mark Paid
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <SendReminderButton id={invoice.id} />
+                      <MarkPaidButton id={invoice.id} />
+                      {canManage && <DeleteInvoiceButton id={invoice.id} />}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -244,6 +265,7 @@ export default async function PaymentsPage() {
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Paid
                     </Badge>
+                    {canManage && <DeleteInvoiceButton id={invoice.id} />}
                   </div>
                 </div>
               ))}
@@ -265,10 +287,7 @@ export default async function PaymentsPage() {
             <p className="text-gray-600 text-center mb-4">
               Create your first invoice to start tracking payments.
             </p>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create First Invoice
-            </Button>
+            <InvoiceFormDialog childOptions={childOptions} triggerLabel="Create First Invoice" />
           </CardContent>
         </Card>
       )}

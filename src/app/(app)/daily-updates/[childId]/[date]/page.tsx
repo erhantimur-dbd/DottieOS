@@ -3,12 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Save, Send, Eye } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
 import { notFound } from "next/navigation"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { DailyNoteForm } from "./daily-note-form"
 
 export default async function DailyUpdateEditPage({
   params
@@ -60,12 +59,14 @@ export default async function DailyUpdateEditPage({
     })
   ])
 
-  const statusColors: Record<string, { variant: any; text: string }> = {
+  type BadgeVariant = "default" | "secondary" | "success" | "warning" | "danger" | "outline"
+  const statusColors: Record<string, { variant: BadgeVariant; text: string }> = {
     DRAFT: { variant: 'secondary', text: 'Draft' },
     NEEDS_APPROVAL: { variant: 'warning', text: 'Needs Approval' },
     APPROVED: { variant: 'success', text: 'Approved' },
     SENT: { variant: 'default', text: 'Sent' },
-    MISSED: { variant: 'danger', text: 'Missed' }
+    MISSED: { variant: 'danger', text: 'Missed' },
+    FAILED: { variant: 'danger', text: 'Failed' }
   }
 
   const status = dailyUpdate?.status || 'DRAFT'
@@ -119,96 +120,22 @@ export default async function DailyUpdateEditPage({
           </p>
         </CardHeader>
         <CardContent>
-          <form className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="wellbeing">Wellbeing & Mood</Label>
-              <Textarea
-                id="wellbeing"
-                placeholder="How was the child's mood and general wellbeing today?"
-                defaultValue={dailyNote?.wellbeing || ''}
-                rows={2}
-              />
-              <p className="text-xs text-gray-600">
-                e.g., "Happy and energetic", "A bit tired but settled well"
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="meals">Meals & Snacks</Label>
-              <Textarea
-                id="meals"
-                placeholder="What did the child eat today?"
-                defaultValue={dailyNote?.meals || ''}
-                rows={2}
-              />
-              <p className="text-xs text-gray-600">
-                e.g., "Ate all breakfast, most of lunch, enjoyed fruit at snack time"
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="naps">Naps & Rest</Label>
-              <Textarea
-                id="naps"
-                placeholder="Did the child nap? For how long?"
-                defaultValue={dailyNote?.naps || ''}
-                rows={2}
-              />
-              <p className="text-xs text-gray-600">
-                e.g., "Slept 2 hours (12:30-14:30)", "No nap today"
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="toileting">Toileting</Label>
-              <Textarea
-                id="toileting"
-                placeholder="Nappy changes or toilet visits"
-                defaultValue={dailyNote?.toileting || ''}
-                rows={2}
-              />
-              <p className="text-xs text-gray-600">
-                e.g., "3 nappy changes", "2 successful toilet visits"
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="activities">Activities</Label>
-              <Textarea
-                id="activities"
-                placeholder="What activities did the child participate in?"
-                defaultValue={dailyNote?.activities || ''}
-                rows={3}
-              />
-              <p className="text-xs text-gray-600">
-                e.g., "Painting, outdoor play, story time, building blocks"
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notableEvents">Notable Events (Optional)</Label>
-              <Textarea
-                id="notableEvents"
-                placeholder="Any special moments or concerns to share?"
-                defaultValue={dailyNote?.notableEvents || ''}
-                rows={2}
-              />
-              <p className="text-xs text-gray-600">
-                e.g., "Shared toys nicely with friends", "Enjoyed singing session"
-              </p>
-            </div>
-
-            <div className="flex gap-2 pt-4 border-t">
-              <Button type="submit" className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                Save Notes
-              </Button>
-              <Button type="button" variant="outline">
-                <Eye className="h-4 w-4 mr-2" />
-                Preview Message
-              </Button>
-            </div>
-          </form>
+          <DailyNoteForm
+            childId={child.id}
+            childFirstName={child.firstName}
+            childLastName={child.lastName}
+            date={date.slice(0, 10)}
+            organisationName={user.organisationName}
+            status={status}
+            initial={{
+              wellbeing: dailyNote?.wellbeing || '',
+              meals: dailyNote?.meals || '',
+              naps: dailyNote?.naps || '',
+              toileting: dailyNote?.toileting || '',
+              activities: dailyNote?.activities || '',
+              notableEvents: dailyNote?.notableEvents || '',
+            }}
+          />
         </CardContent>
       </Card>
 

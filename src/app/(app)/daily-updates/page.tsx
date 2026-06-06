@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MessageSquare, Edit, Check, X, Clock, Send } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
 
@@ -36,7 +37,8 @@ export default async function DailyUpdatesPage() {
     orderBy: { firstName: 'asc' }
   })
 
-  const statusColors: Record<string, { variant: any; icon: any; text: string }> = {
+  type BadgeVariant = "default" | "secondary" | "success" | "warning" | "danger" | "outline"
+  const statusColors: Record<string, { variant: BadgeVariant; icon: LucideIcon; text: string }> = {
     DRAFT: { variant: 'secondary', icon: Edit, text: 'Draft' },
     NEEDS_APPROVAL: { variant: 'warning', icon: Clock, text: 'Needs Approval' },
     APPROVED: { variant: 'success', icon: Check, text: 'Approved' },

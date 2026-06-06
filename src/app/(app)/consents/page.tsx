@@ -1,12 +1,16 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileCheck, AlertTriangle, Check, X, Plus } from "lucide-react"
+import { AlertTriangle, Check, X } from "lucide-react"
+import { TemplateFormDialog } from "./template-form"
+import { DeleteTemplateButton } from "./template-actions"
+import { ConsentRecordDialog } from "./consent-form"
 
 export default async function ConsentsPage() {
   const user = await requireAuth()
+  // Only administrators may delete consent templates (enforced server-side too).
+  const canManage = isAdmin(user.role)
 
   const [children, templates] = await Promise.all([
     prisma.child.findMany({
@@ -23,6 +27,7 @@ export default async function ConsentsPage() {
     })
   ])
 
+  const templateOptions = templates.map((t) => ({ id: t.id, name: t.name }))
   const allConsents = children.flatMap(c => c.consentRecords)
   const missingCount = allConsents.filter(c => c.status === 'MISSING').length
   const expiredCount = allConsents.filter(c => c.status === 'EXPIRED').length
@@ -37,10 +42,7 @@ export default async function ConsentsPage() {
             Manage consent forms and child documents
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Template
-        </Button>
+        <TemplateFormDialog />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -106,7 +108,20 @@ export default async function ConsentsPage() {
                   key={template.id}
                   className="p-4 border-2 border-gray-200 rounded-md"
                 >
-                  <h4 className="font-semibold">{template.name}</h4>
+                  <div className="flex items-start justify-between">
+                    <h4 className="font-semibold">{template.name}</h4>
+                    <div className="flex items-center gap-1">
+                      <TemplateFormDialog
+                        template={{
+                          id: template.id,
+                          name: template.name,
+                          description: template.description,
+                          requiresExpiry: template.requiresExpiry,
+                        }}
+                      />
+                      {canManage && <DeleteTemplateButton id={template.id} />}
+                    </div>
+                  </div>
                   {template.description && (
                     <p className="text-sm text-gray-600 mt-1">{template.description}</p>
                   )}
@@ -171,9 +186,11 @@ export default async function ConsentsPage() {
                             Complete
                           </Badge>
                         )}
-                        <Button size="sm" variant="outline">
-                          View Details
-                        </Button>
+                        <ConsentRecordDialog
+                          childId={child.id}
+                          childName={`${child.firstName} ${child.lastName}`}
+                          templates={templateOptions}
+                        />
                       </div>
                     </div>
                   </div>

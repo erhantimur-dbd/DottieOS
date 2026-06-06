@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  BadgePound,
+  PoundSterling,
   CalendarDays,
   Users,
   BarChart3,
@@ -15,7 +15,7 @@ import {
 
 const benefits = [
   {
-    icon: BadgePound,
+    icon: PoundSterling,
     title: "25% Revenue Share",
     description:
       "Earn 25% of every subscription payment made by clients you refer for a full 12 months.",

@@ -1,22 +1,39 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, isAdmin, isSupervisorOrAbove } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Plus, Check, X } from "lucide-react"
+import { AlertTriangle, Check, X } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { IncidentFormDialog } from "./incident-form"
+import { MarkNotifiedButton, DeleteIncidentButton } from "./incident-actions"
+
+function toDateInput(d: Date): string {
+  return new Date(d).toISOString().slice(0, 10)
+}
 
 export default async function IncidentsPage() {
   const user = await requireAuth()
+  // Incidents are safeguarding records: only supervisors+ may amend them and
+  // only admins may delete them (also enforced server-side).
+  const canEdit = isSupervisorOrAbove(user.role)
+  const canDelete = isAdmin(user.role)
 
-  const incidents = await prisma.incidentLog.findMany({
-    where: { organisationId: user.organisationId },
-    include: {
-      child: true,
-      createdBy: true
-    },
-    orderBy: { date: 'desc' }
-  })
+  const [incidents, children] = await Promise.all([
+    prisma.incidentLog.findMany({
+      where: { organisationId: user.organisationId },
+      include: {
+        child: true,
+        createdBy: true
+      },
+      orderBy: { date: 'desc' }
+    }),
+    prisma.child.findMany({
+      where: { organisationId: user.organisationId },
+      orderBy: { firstName: 'asc' }
+    })
+  ])
+
+  const childOptions = children.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))
 
   const notified = incidents.filter(i => i.parentNotified).length
   const notNotified = incidents.filter(i => !i.parentNotified).length
@@ -30,10 +47,7 @@ export default async function IncidentsPage() {
             Record and manage incidents and accidents
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Log Incident
-        </Button>
+        <IncidentFormDialog childOptions={childOptions} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -145,9 +159,26 @@ export default async function IncidentsPage() {
                           Not notified
                         </Badge>
                       )}
-                      <Button size="sm" variant="outline">
-                        View Details
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {!incident.parentNotified && (
+                          <MarkNotifiedButton id={incident.id} />
+                        )}
+                        {canEdit && (
+                          <IncidentFormDialog
+                            childOptions={childOptions}
+                            incident={{
+                              id: incident.id,
+                              childId: incident.childId,
+                              date: toDateInput(incident.date),
+                              time: incident.time,
+                              description: incident.description,
+                              actionTaken: incident.actionTaken,
+                              witnesses: incident.witnesses,
+                            }}
+                          />
+                        )}
+                        {canDelete && <DeleteIncidentButton id={incident.id} />}
+                      </div>
                     </div>
                   </div>
                 </div>

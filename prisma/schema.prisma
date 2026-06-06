@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -41,6 +40,7 @@ model Organisation {
   dailyNotes          DailyNote[]
   dailyUpdates        DailyUpdate[]
   outboundMessageLogs OutboundMessageLog[]
+  auditLogs           AuditLog[]
 
   @@map("organisations")
 }
@@ -77,6 +77,7 @@ model User {
   createdEvidenceItems    EvidenceItem[]        @relation("EvidenceCreator")
   updatedEvidenceItems    EvidenceItem[]        @relation("EvidenceUpdater")
   createdDocuments        Document[]
+  auditLogs               AuditLog[]
 
   @@map("users")
 }
@@ -217,7 +218,7 @@ enum PaymentStatus {
 model PaymentInvoice {
   id             String        @id @default(cuid())
   childId        String
-  amount         Float
+  amount         Decimal       @db.Decimal(10, 2)
   dueDate        DateTime
   paidDate       DateTime?
   status         PaymentStatus @default(UNPAID)
@@ -551,4 +552,27 @@ model AffiliateApplication {
   @@index([status])
   @@index([email])
   @@map("affiliate_applications")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organisationId String
+  actorId        String? // user who performed the action (null = system/cron)
+  actorName      String // snapshot of actor name at time of action
+  action         String // CREATE | UPDATE | DELETE | APPROVE | SEND | LOGIN etc.
+  entityType     String // e.g. "Child", "Task", "DailyUpdate", "PaymentInvoice"
+  entityId       String?
+  summary        String // human-readable description of what happened
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }
